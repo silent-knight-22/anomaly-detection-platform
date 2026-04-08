@@ -133,9 +133,11 @@ Open `http://localhost:8501` in your browser.
 
 ```
 GET /health
+```
 
 ### Fraud Prediction
 
+```
 POST /predict/fraud
 Content-Type: application/json
 {
