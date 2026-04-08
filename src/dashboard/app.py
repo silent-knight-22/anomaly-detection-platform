@@ -11,6 +11,8 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
+import warnings
+warnings.filterwarnings('ignore')
 import shap
 import os
 import sys
