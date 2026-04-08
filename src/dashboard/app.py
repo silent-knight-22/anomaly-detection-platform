@@ -521,5 +521,5 @@ with tab3:
                 st.image(
                     os.path.join(figures_dir, fig_name),
                     caption=fig_name.replace('_', ' ').replace('.png', ''),
-                    width=True
+                    width=400
                 )
