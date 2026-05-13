@@ -86,7 +86,9 @@ def train_all():
     """Main training function — runs full pipeline."""
 
     # Load and preprocess
-    df = load_fraud_data('data/raw/fraud/creditcard.csv')
+    sample_rows = os.getenv("FRAUD_SAMPLE_ROWS")
+    sample_rows = int(sample_rows) if sample_rows else None
+    df = load_fraud_data(nrows=sample_rows)
     X_train, X_test, y_train, y_test, preprocessor = preprocess_fraud(df)
 
     results = {}
@@ -108,15 +110,16 @@ def train_all():
     # ── MODEL 2: XGBoost (Main Model) ──
     print("\n\nTraining XGBoost...")
 
-    # scale_pos_weight handles remaining imbalance
-    scale = (y_train == 0).sum() / (y_train == 1).sum()
+    # scale_pos_weight handles the IEEE class imbalance without expanding
+    # the already-large transformed feature matrix.
+    positive_count = (y_train == 1).sum()
+    scale = (y_train == 0).sum() / positive_count if positive_count else 1
 
     xgb_model = xgb.XGBClassifier(
         n_estimators=300,
         max_depth=6,
         learning_rate=0.05,
         scale_pos_weight=scale,
-        use_label_encoder=False,
         eval_metric='aucpr',
         random_state=42,
         n_jobs=-1

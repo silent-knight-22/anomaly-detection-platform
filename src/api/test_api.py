@@ -6,6 +6,8 @@ Run this while the FastAPI server is running.
 import requests
 import json
 import numpy as np
+import pandas as pd
+import os
 
 BASE_URL = "http://localhost:8000"
 
@@ -19,28 +21,37 @@ def test_health():
 
 def test_fraud():
     """Test fraud endpoint with a sample transaction."""
-    # Simulate a transaction: V1-V28 random PCA values + Amount
-    np.random.seed(42)
-    features = list(np.random.randn(28)) + [150.0]  # Amount = $150
+    path = "data/raw/fraud/train_transaction.csv"
+    if not os.path.exists(path):
+        print("Skipping fraud test: IEEE train_transaction.csv not found")
+        return
+    record = pd.read_csv(path, nrows=1).iloc[0]
+    record = record.drop(labels=["isFraud"], errors="ignore")
+    record = record.where(pd.notna(record), None)
 
-    payload = {"features": features}
+    payload = {"record": record.to_dict()}
     response = requests.post(f"{BASE_URL}/predict/fraud", json=payload)
 
-    print("\n=== FRAUD PREDICTION (Normal transaction) ===")
+    print("\n=== FRAUD PREDICTION (IEEE sample transaction) ===")
     print(json.dumps(response.json(), indent=2))
 
 
 def test_fraud_suspicious():
     """Test with values that mimic fraud patterns."""
-    # V14 strongly negative = fraud signal (from SHAP analysis)
-    features = list(np.random.randn(28)) + [1.0]
-    features[13] = -8.0   # V14 strongly negative
-    features[3] = -6.0    # V4 strongly negative
+    path = "data/raw/fraud/train_transaction.csv"
+    if not os.path.exists(path):
+        print("Skipping fraud suspicious test: IEEE train_transaction.csv not found")
+        return
+    rows = pd.read_csv(path, nrows=5000)
+    fraud_rows = rows[rows.get("isFraud", 0) == 1]
+    row = fraud_rows.iloc[0] if not fraud_rows.empty else rows.iloc[-1]
+    record = row.drop(labels=["isFraud"], errors="ignore")
+    record = record.where(pd.notna(record), None)
 
-    payload = {"features": features}
+    payload = {"record": record.to_dict()}
     response = requests.post(f"{BASE_URL}/predict/fraud", json=payload)
 
-    print("\n=== FRAUD PREDICTION (Suspicious transaction) ===")
+    print("\n=== FRAUD PREDICTION (IEEE suspicious sample) ===")
     print(json.dumps(response.json(), indent=2))
 
 

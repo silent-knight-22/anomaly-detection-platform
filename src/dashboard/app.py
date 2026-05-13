@@ -119,6 +119,43 @@ def plot_score_gauge(score: float, title: str):
     return fig
 
 
+@st.cache_data(show_spinner=False)
+def load_fraud_samples(nrows: int = 20000) -> pd.DataFrame:
+    """Load a small IEEE-CIS sample for dashboard examples."""
+    tx_path = "data/raw/fraud/train_transaction.csv"
+    id_path = "data/raw/fraud/train_identity.csv"
+    if not os.path.exists(tx_path):
+        return pd.DataFrame()
+    df = pd.read_csv(tx_path, nrows=nrows, low_memory=False)
+    if os.path.exists(id_path):
+        identity = pd.read_csv(id_path, nrows=nrows, low_memory=False)
+        df = df.merge(identity, on="TransactionID", how="left")
+    return df
+
+
+def pick_fraud_sample(kind: str) -> dict:
+    samples = load_fraud_samples()
+    if samples.empty:
+        return {}
+    target = 1 if kind == "suspicious" else 0
+    matches = samples[samples.get("isFraud", 0) == target]
+    if matches.empty:
+        matches = samples
+    return matches.iloc[0].drop(labels=["isFraud"], errors="ignore").to_dict()
+
+
+def clean_record_for_json(record: dict) -> dict:
+    cleaned = {}
+    for key, value in record.items():
+        if pd.isna(value):
+            cleaned[key] = None
+        elif isinstance(value, np.generic):
+            cleaned[key] = value.item()
+        else:
+            cleaned[key] = value
+    return cleaned
+
+
 def generate_shap_plot(domain: str, features_df: pd.DataFrame):
     """Generate SHAP waterfall for a single prediction."""
     try:
@@ -213,48 +250,60 @@ with tab1:
 
     if domain == "Fraud Detection":
         st.markdown("#### Transaction Features")
-        st.caption("V1–V28 are PCA-transformed features. Amount is in USD.")
+        st.caption("IEEE-CIS transaction fields. Missing fields are handled by the trained preprocessor.")
 
-        load = st.session_state.get('load_sample', None)
-        np.random.seed(42)
+        load = st.session_state.get('load_sample', 'normal')
+        sample_record = pick_fraud_sample(load)
+        editable_fields = [
+            "TransactionAmt", "ProductCD", "card1", "card2", "card3",
+            "card4", "card5", "card6", "addr1", "addr2", "P_emaildomain",
+            "R_emaildomain", "C1", "C2", "C13", "D1", "D10", "M4",
+            "DeviceType", "DeviceInfo",
+        ]
+        fraud_record = {
+            field: sample_record.get(field)
+            for field in editable_fields
+            if field in sample_record
+        }
 
-        if load == 'suspicious':
-            default_v = list(np.random.randn(28))
-            default_v[13] = -8.0
-            default_v[3] = -6.0
-            default_amount = 1.0
-        else:
-            default_v = list(np.random.randn(28))
-            default_amount = 150.0
+        if not fraud_record:
+            st.warning("No IEEE-CIS fraud sample file found in data/raw/fraud.")
 
-        cols = st.columns(4)
-        v_values = []
-        for i in range(28):
-            with cols[i % 4]:
-                v = st.number_input(
-                    f"V{i+1}",
-                    value=round(default_v[i], 4),
-                    format="%.4f",
-                    key=f"v{i+1}"
-                )
-                v_values.append(v)
-
-        amount = st.number_input("Amount ($)",
-                                  value=default_amount,
-                                  min_value=0.0,
-                                  format="%.2f")
+        cols = st.columns(3)
+        edited_record = {}
+        text_fields = {
+            "ProductCD", "card4", "card6", "P_emaildomain", "R_emaildomain",
+            "M4", "DeviceType", "DeviceInfo",
+        }
+        for i, (field, value) in enumerate(fraud_record.items()):
+            with cols[i % 3]:
+                if field in text_fields:
+                    edited_record[field] = st.text_input(
+                        field,
+                        value="" if pd.isna(value) else str(value),
+                        key=f"fraud_{field}",
+                    )
+                else:
+                    edited_record[field] = st.number_input(
+                        field,
+                        value=0.0 if pd.isna(value) else float(value),
+                        format="%.4f",
+                        key=f"fraud_{field}",
+                    )
 
         if st.button("🔍 Predict Fraud", type="primary"):
             if not check_api():
                 st.error("API is not running. Start FastAPI first.")
             else:
-                features = v_values + [amount]
                 with st.spinner("Analyzing transaction..."):
                     r = requests.post(
                         f"{API_URL}/predict/fraud",
-                        json={"features": features}
+                        json={"record": clean_record_for_json(edited_record)}
                     )
                     result = r.json()
+                if r.status_code != 200:
+                    st.error(result.get("detail", "Fraud prediction failed."))
+                    st.stop()
 
                 st.markdown("---")
                 st.markdown("### 🎯 Prediction Result")
@@ -285,21 +334,9 @@ with tab1:
                     st.pyplot(fig)
                     plt.close()
 
-                # SHAP explanation
-                with st.expander("🔬 View SHAP Explanation"):
-                    feature_names = [f'V{i}' for i in range(1, 29)] + ['Amount']
-                    features_df = pd.DataFrame(
-                        [features], columns=feature_names
-                    )
-                    scaler = joblib.load('models/fraud/fraud_scaler.pkl')
-                    features_df['Amount'] = scaler.transform(
-                        features_df[['Amount']]
-                    )
-                    with st.spinner("Generating SHAP explanation..."):
-                        fig = generate_shap_plot("fraud", features_df)
-                    if fig:
-                        st.pyplot(fig)
-                        plt.close()
+                # Submitted transaction payload
+                with st.expander("Submitted IEEE-CIS fields"):
+                    st.json(clean_record_for_json(edited_record))
 
     else:  # Intrusion Detection
         st.markdown("#### Network Traffic Features")
@@ -370,7 +407,7 @@ with tab2:
     st.markdown("Upload a CSV file to get predictions for multiple records at once.")
 
     if domain == "Fraud Detection":
-        st.info("CSV must have columns: V1–V28, Amount (no Class column needed)")
+        st.info("CSV should contain IEEE-CIS transaction columns. A target column such as isFraud is ignored if present.")
     else:
         st.info("CSV must have 41 NSL-KDD feature columns")
 
@@ -392,13 +429,14 @@ with tab2:
                 for i, row in df.iterrows():
                     try:
                         if domain == "Fraud Detection":
-                            feat_cols = [f'V{j}' for j in range(1, 29)] + ['Amount']
-                            features = row[feat_cols].tolist()
+                            record = row.drop(labels=['isFraud', 'Class'], errors='ignore').to_dict()
                             r = requests.post(
                                 f"{API_URL}/predict/fraud",
-                                json={"features": features}
+                                json={"record": clean_record_for_json(record)}
                             )
                             res = r.json()
+                            if r.status_code != 200:
+                                raise RuntimeError(res.get('detail', 'Fraud prediction failed'))
                             results.append({
                                 'row': i,
                                 'prediction': res['label'],

@@ -12,7 +12,11 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from src.fraud.preprocessor import load_fraud_data, preprocess_fraud
+from src.fraud.preprocessor import (
+    get_transformed_feature_names,
+    load_fraud_data,
+    preprocess_fraud,
+)
 
 
 def run_shap_analysis():
@@ -21,8 +25,10 @@ def run_shap_analysis():
     print("=== SHAP EXPLAINABILITY ANALYSIS ===\n")
 
     # Step 1: Load and preprocess data
-    df = load_fraud_data('data/raw/fraud/creditcard.csv')
-    X_train, X_test, y_train, y_test, _ = preprocess_fraud(df)
+    sample_rows = os.getenv("FRAUD_SAMPLE_ROWS")
+    sample_rows = int(sample_rows) if sample_rows else None
+    df = load_fraud_data(nrows=sample_rows)
+    X_train, X_test, y_train, y_test, preprocessor_bundle = preprocess_fraud(df)
 
     # Step 2: Load trained XGBoost model
     model = joblib.load('models/fraud/xgboost_model.pkl')
@@ -33,16 +39,21 @@ def run_shap_analysis():
     explainer = shap.TreeExplainer(model)
 
     # Use a sample of test data for speed (500 rows is enough)
-    X_sample = X_test.iloc[:500]
+    X_sample = X_test[:500]
     shap_values = explainer.shap_values(X_sample)
     print("SHAP values computed.")
+    feature_names = get_transformed_feature_names(preprocessor_bundle)
+    X_sample_plot = pd.DataFrame(
+        X_sample.toarray() if hasattr(X_sample, "toarray") else X_sample,
+        columns=feature_names,
+    )
 
     os.makedirs('reports/figures', exist_ok=True)
 
     # Plot 1: Summary Bar Plot (global feature importance)
     plt.figure()
     shap.summary_plot(
-        shap_values, X_sample,
+        shap_values, X_sample_plot,
         plot_type="bar",
         show=False,
         max_display=15
@@ -56,7 +67,7 @@ def run_shap_analysis():
     # Plot 2: Summary Dot Plot (direction + magnitude)
     plt.figure()
     shap.summary_plot(
-        shap_values, X_sample,
+        shap_values, X_sample_plot,
         show=False,
         max_display=15
     )
@@ -75,8 +86,8 @@ def run_shap_analysis():
             shap_exp = shap.Explanation(
                 values=shap_values[fraud_idx],
                 base_values=explainer.expected_value,
-                data=X_sample.iloc[fraud_idx],
-                feature_names=X_sample.columns.tolist()
+                data=X_sample_plot.iloc[fraud_idx],
+                feature_names=X_sample_plot.columns.tolist()
             )
             plt.figure()
             shap.waterfall_plot(shap_exp, show=False, max_display=15)
@@ -88,7 +99,7 @@ def run_shap_analysis():
 
     # Print top features
     mean_shap = pd.DataFrame({
-        'feature': X_sample.columns,
+        'feature': X_sample_plot.columns,
         'importance': np.abs(shap_values).mean(axis=0)
     }).sort_values('importance', ascending=False)
 
@@ -96,7 +107,7 @@ def run_shap_analysis():
     print(mean_shap.head(10).to_string(index=False))
 
     print("\n✅ SHAP analysis complete. Plots saved to reports/figures/")
-    return shap_values, X_sample
+    return shap_values, X_sample_plot
 
 
 if __name__ == "__main__":

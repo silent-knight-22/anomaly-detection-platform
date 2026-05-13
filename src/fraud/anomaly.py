@@ -106,7 +106,9 @@ def run_anomaly_detection():
     print("=== ISOLATION FOREST ANOMALY DETECTION ===\n")
 
     # Load and preprocess
-    df = load_fraud_data('data/raw/fraud/creditcard.csv')
+    sample_rows = os.getenv("FRAUD_SAMPLE_ROWS")
+    sample_rows = int(sample_rows) if sample_rows else None
+    df = load_fraud_data(nrows=sample_rows)
     X_train, X_test, y_train, y_test, _ = preprocess_fraud(df)
 
     # Load XGBoost for combination

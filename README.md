@@ -1,233 +1,253 @@
-# 🛡️ Anomaly Detection Platform
+# Anomaly Detection Platform
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
-![XGBoost](https://img.shields.io/badge/XGBoost-2.0-orange)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.108-green?logo=fastapi)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.29-red?logo=streamlit)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+A unified machine learning platform for financial fraud detection and network intrusion detection. It includes model training pipelines, a FastAPI backend, and an interactive Streamlit dashboard.
 
-A production-grade unified ML platform for **Financial Fraud Detection** and **Network Intrusion Detection** — featuring modular pipelines, SHAP explainability, a REST API, and an interactive dashboard.
+## Project Overview
 
----
+- Fraud detection using the IEEE-CIS fraud dataset
+- Network intrusion detection using NSL-KDD
+- XGBoost as the primary supervised model
+- Isolation Forest as an anomaly scoring layer for fraud
+- SHAP explainability utilities
+- REST API for predictions
+- Streamlit dashboard for single-record and CSV prediction workflows
 
-## 🎯 Project Overview
+## Model Performance
 
-Most anomaly detection projects stop at a Jupyter notebook. This platform goes further:
+### Fraud Detection (IEEE-CIS Dataset)
 
-- **Two detection domains** in one unified system
-- **Dual-layer detection** — XGBoost + Isolation Forest combined scoring
-- **Explainability** — SHAP values for every prediction
-- **REST API** — FastAPI backend serving both models
-- **Interactive UI** — Streamlit dashboard with batch CSV upload
+These fraud metrics are from a 200,000-row IEEE-CIS training run.
 
----
+| Model | ROC-AUC | Avg Precision |
+| --- | ---: | ---: |
+| Logistic Regression | 0.8802 | 0.4326 |
+| XGBoost | 0.9411 | 0.6796 |
+| XGBoost + Isolation Forest | 0.9373 | - |
 
-## 📊 Model Performance
+The IEEE-CIS fraud pipeline handles missing values, categorical columns, numeric scaling, and class imbalance. XGBoost uses `scale_pos_weight` instead of expanding the large transformed feature matrix with SMOTE.
 
-### Fraud Detection (Credit Card Dataset — 284,807 transactions)
+### Intrusion Detection (NSL-KDD Dataset)
 
-| Model                          | ROC-AUC    | Avg Precision |
-| ------------------------------ | ---------- | ------------- |
-| Logistic Regression (baseline) | 0.9604     | —             |
-| XGBoost                        | **0.9694** | 0.7899        |
-| XGBoost + Isolation Forest     | 0.9582     | —             |
+| Model | ROC-AUC | Avg Precision |
+| --- | ---: | ---: |
+| Random Forest | 0.9691 | 0.9699 |
+| XGBoost | 0.9696 | 0.9725 |
 
-> Dataset imbalance: 577:1 (non-fraud:fraud) — handled with SMOTE + threshold tuning
+## Repository Structure
 
-### Intrusion Detection (NSL-KDD Dataset — 125,973 records)
-
-| Model         | ROC-AUC    | Avg Precision |
-| ------------- | ---------- | ------------- |
-| Random Forest | 0.9691     | 0.9699        |
-| XGBoost       | **0.9696** | 0.9725        |
-
-> 5-class attack taxonomy: DoS, Probe, R2L, U2R, Normal
-
----
-
-## 🏗️ System Architecture
-
-```
+```text
 anomaly-detection-platform/
-│
 ├── data/
-│ └── raw/
-│ ├── fraud/ # Credit Card Fraud CSV
-│ └── intrusion/ # NSL-KDD Train/Test
-│
-├── src/
-│ ├── shared/ # Common preprocessing pipeline
-│ ├── fraud/ # Fraud module (preprocess, train, explain, anomaly)
-│ ├── intrusion/ # Intrusion module (preprocess, train, explain)
-│ ├── api/ # FastAPI backend
-│ └── dashboard/ # Streamlit frontend
-│
+│   └── raw/
+│       ├── fraud/      # IEEE-CIS CSV files
+│       └── intrusion/  # NSL-KDD Train/Test files
 ├── models/
-│ ├── fraud/ # XGBoost, Isolation Forest, Scaler
-│ └── intrusion/ # XGBoost, Random Forest, Scaler
-│
-└── reports/figures/ # SHAP plots, ROC curves, EDA charts
+│   ├── fraud/
+│   └── intrusion/
+├── reports/
+│   └── figures/
+├── src/
+│   ├── api/
+│   ├── dashboard/
+│   ├── fraud/
+│   ├── intrusion/
+│   └── shared/
+└── tests/
 ```
 
----
+## Setup
 
-## 🔬 Key Technical Decisions
+Using `D:\anomaly-detection-platform` is recommended for large datasets and model artifacts.
 
-**Why SMOTE on fraud data?**
-The 577:1 class imbalance means a naive model predicts "normal" always and gets 99.8% accuracy. SMOTE synthetically generates fraud samples in feature space, forcing the model to learn actual fraud patterns.
-
-**Why Isolation Forest on top of XGBoost?**
-XGBoost is supervised — it needs labels. Isolation Forest is unsupervised — it detects transactions that are structurally anomalous regardless of labels. Combining both (70/30 weight) catches fraud patterns the supervised model may miss.
-
-**Why SHAP over standard feature importance?**
-Standard feature importance tells you which features matter globally. SHAP tells you _why_ a specific transaction was flagged — direction and magnitude per feature, per prediction. This is what makes the system auditable.
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone and Setup
-
-```bash
-git clone https://github.com/silent-knight-22/anomaly-detection-platform.git
-cd anomaly-detection-platform
+```powershell
+cd D:\anomaly-detection-platform
 python -m venv venv
-venv\Scripts\activate        # Windows
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 2. Add Datasets
+## Datasets
 
-Download and place in the correct folders:
+Place the IEEE-CIS fraud files in `data/raw/fraud/`:
 
-- [Credit Card Fraud](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) → `data/raw/fraud/creditcard.csv`
-- [NSL-KDD](https://www.kaggle.com/datasets/hassan06/nslkdd) → `data/raw/intrusion/KDDTrain+.txt` and `KDDTest+.txt`
+- `train_transaction.csv`
+- `train_identity.csv`
+- `test_transaction.csv`
+- `test_identity.csv`
+- `sample_submission.csv`
 
-### 3. Train Models
+Place the NSL-KDD files in `data/raw/intrusion/`:
 
-```bash
+- `KDDTrain+.txt`
+- `KDDTest+.txt`
+
+Raw datasets are git-ignored because they are large.
+
+## Training
+
+For practical local training, start with a sample:
+
+```powershell
+$env:FRAUD_SAMPLE_ROWS=200000
 python src/fraud/train.py
-python src/fraud/explain.py
 python src/fraud/anomaly.py
+```
+
+To train on the full IEEE-CIS training file:
+
+```powershell
+Remove-Item Env:FRAUD_SAMPLE_ROWS
+python src/fraud/train.py
+python src/fraud/anomaly.py
+```
+
+Optional fraud explainability plots:
+
+```powershell
+python src/fraud/explain.py
+```
+
+Intrusion training:
+
+```powershell
 python src/intrusion/train.py
 python src/intrusion/explain.py
 ```
 
-### 4. Start the Platform
+## Running The App
 
-```bash
-# Terminal 1 — API
+Start the API in one terminal:
+
+```powershell
+cd D:\anomaly-detection-platform
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
 uvicorn src.api.main:app --reload --port 8000
+```
 
-# Terminal 2 — Dashboard
+Start the Streamlit dashboard in another terminal:
+
+```powershell
+cd D:\anomaly-detection-platform
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
 streamlit run src/dashboard/app.py
 ```
 
-Open `http://localhost:8501` in your browser.
+Open:
 
----
+```text
+http://localhost:8501
+```
 
-## 📡 API Reference
+The sidebar should show `API Connected`.
+
+## API Reference
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
 ### Fraud Prediction
 
-```
+```http
 POST /predict/fraud
 Content-Type: application/json
+
 {
-"features": [V1, V2, ..., V28, Amount] // 29 values
+  "record": {
+    "TransactionAmt": 68.5,
+    "ProductCD": "W",
+    "card1": 13926,
+    "card4": "discover",
+    "card6": "credit"
+  }
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
-  "prediction": 1,
-  "label": "FRAUD",
-  "fraud_probability": 0.923,
-  "anomaly_score": 0.741,
-  "combined_risk_score": 0.868,
-  "risk_level": "HIGH"
+  "prediction": 0,
+  "label": "NORMAL",
+  "fraud_probability": 0.1874,
+  "anomaly_score": 0.3153,
+  "combined_risk_score": 0.2257,
+  "risk_level": "MINIMAL"
+}
+```
+
+Batch fraud prediction is supported with:
+
+```json
+{
+  "records": [
+    {
+      "TransactionAmt": 68.5,
+      "ProductCD": "W",
+      "card1": 13926
+    }
+  ]
 }
 ```
 
 ### Intrusion Prediction
 
-```
+```http
 POST /predict/intrusion
 Content-Type: application/json
+
 {
-"features": [f1, f2, ..., f41] // 41 NSL-KDD features
-}
-
-```
-
-**Response:**
-
-```json
-{
-  "prediction": 1,
-  "label": "ATTACK",
-  "attack_probability": 0.876,
-  "risk_level": "HIGH"
+  "features": [0.0, 1.0, 0.0]
 }
 ```
 
----
+The intrusion endpoint expects all 41 NSL-KDD feature values.
 
-## 📈 Results & Visualizations
+## Dashboard Notes
 
-### SHAP Feature Importance — Fraud
+The fraud dashboard now uses IEEE-CIS fields such as:
 
-![SHAP Fraud](reports/figures/shap_importance_bar.png)
+- `TransactionAmt`
+- `ProductCD`
+- `card1`
+- `card2`
+- `card4`
+- `card6`
+- `C1`
+- `C2`
+- `D1`
+- `DeviceType`
 
-### SHAP Feature Importance — Intrusion
+For CSV batch prediction, use a small sample CSV first. The current dashboard processes rows sequentially, so uploading full IEEE files can take a long time.
 
-![SHAP Intrusion](reports/figures/intrusion_shap_bar.png)
+## Key Implementation Details
 
-### ROC Curves — Fraud
+- `src/fraud/preprocessor.py` loads IEEE transaction and identity files, joins them on `TransactionID`, and builds the preprocessing pipeline.
+- `models/fraud/fraud_preprocessor.pkl` is required at inference time.
+- `src/api/main.py` accepts raw IEEE-CIS fraud records through `record` or `records`.
+- `src/dashboard/app.py` uses IEEE-CIS sample fields for the fraud UI.
 
-![ROC Fraud](reports/figures/fraud_roc_curves.png)
+## Tech Stack
 
-### ROC Curves — Intrusion
+| Layer | Technology |
+| --- | --- |
+| ML Models | XGBoost, Scikit-learn, Isolation Forest |
+| Explainability | SHAP |
+| Imbalance Handling | XGBoost `scale_pos_weight` |
+| API | FastAPI, Uvicorn |
+| Dashboard | Streamlit |
+| Data Processing | Pandas, NumPy |
+| Visualization | Matplotlib, Seaborn, Plotly |
+| Model Persistence | Joblib |
 
-![ROC Intrusion](reports/figures/intrusion_roc_curves.png)
+## Author
 
----
-
-## 🛠️ Tech Stack
-
-| Layer              | Technology                              |
-| ------------------ | --------------------------------------- |
-| ML Models          | XGBoost, Scikit-learn, Isolation Forest |
-| Explainability     | SHAP                                    |
-| Imbalance Handling | SMOTE (imbalanced-learn)                |
-| API                | FastAPI + Uvicorn                       |
-| Dashboard          | Streamlit                               |
-| Data Processing    | Pandas, NumPy                           |
-| Visualization      | Matplotlib, Seaborn, Plotly             |
-| Model Persistence  | Joblib                                  |
-
----
-
-## 📁 Datasets
-
-| Dataset           | Source                               | Size                 | Task                       |
-| ----------------- | ------------------------------------ | -------------------- | -------------------------- |
-| Credit Card Fraud | Kaggle / ULB                         | 284,807 transactions | Binary classification      |
-| NSL-KDD           | Canadian Institute for Cybersecurity | 125,973 records      | Multi-class classification |
-
----
-
-## 👤 Author
-
-**Preeti**
-B.Tech Information Technology — NIT Kurukshetra
+Preeti  
+B.Tech Information Technology, NIT Kurukshetra  
 [GitHub](https://github.com/silent-knight-22)
