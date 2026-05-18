@@ -1,0 +1,474 @@
+B.Tech Project Report
+Final Evaluation
+
+ANOMALY DETECTION PLATFORM
+
+A Machine Learning System for Financial Fraud Detection and Network
+
+Intrusion Detection
+Submitted by
+PREETI (11710579)
+Under the Supervision of
+Dr. Chilukamari Rajesh
+Assistant Professor
+
+NATIONAL INSTITUTE OF TECHNOLOGY, KURUKSHETRA
+
+Department of Computer Engineering
+KURUKSHETRA – 136119, HARYANA (INDIA)
+
+May, 2026
+
+GitHub: github.com/silent-knight-22/anomaly-detection-platform
+Live Demo: anomaly-detection-platform-cxuq2ymf9qsky7klzkoe8y.streamlit.app
+
+CERTIFICATE
+
+I hereby certify that this Project Report on “Anomaly Detection
+Platform: A Machine Learning System for Financial Fraud
+Detection and Network Intrusion Detection”, submitted by Preeti,
+Roll No. 11710579, in the year 2026 in partial fulfilment of the
+academic requirements of Eighth (8th) Semester evaluation for the
+degree of Bachelor of Technology in Information Technology, is her
+work carried out under the supervision of Dr. Chilukamari Rajesh,
+Assistant Professor, Computer Engineering Department, National
+Institute of Technology, Kurukshetra, India.
+
+The matter presented in this report has not been submitted for the award
+of any other degree elsewhere.
+
+Preeti
+Roll No.:11710579
+
+This is to certify that the above statement made by the candidate is
+correct to the best of my knowledge.
+
+Date: 16 May, 2026 Dr.Chilukamari Rajesh
+Assistant Professor
+
+ACKNOWLEDGEMENT
+
+First of all, I express my gratitude to the Almighty, who blessed me with
+the zeal and enthusiasm to complete this term work successfully. I am
+extremely thankful to my supervisor Dr. Chilukamari Rajesh,
+Assistant Professor, Computer Engineering Department, National
+Institute of Technology Kurukshetra, Haryana for his support and
+tireless efforts to help me to get deep knowledge of the research area and
+supporting me throughout the life cycle of my project. Especially, the
+extensive comments, healthy discussions, and fruitful interactions with
+the supervisors had a direct impact on the final form and quality of my
+project work.
+I am also thankful to Prof. Dr. A.K. Singh, Head of the Computer
+Engineering Department, for his fruitful guidance through the early
+years of chaos and confusions. I wish to thank the faculty members and
+supporting staff of the Computer Engineering Department for their full
+support and heartiest co-operation.
+This report would not have been possible without the hearty support of
+my friends. My deepest regards to my Parents for their blessings,
+affection and continuous support. Also, Last but not the least, I thank the
+GOD, the Almighty for giving me the inner willingness, strength and
+wisdom to carry out this research work successfully.
+
+Preeti
+
+ABSTRACT
+
+This project presents the design, development, and deployment of an
+Anomaly Detection Platform — a machine learning system that
+simultaneously addresses two high-impact real-world domains:
+financial fraud detection and network intrusion detection. The platform
+integrates modular ML pipelines, dual-layer detection combining
+supervised XGBoost models with unsupervised Isolation Forest
+anomaly scoring, SHAP-based explainability, a REST API backend
+built on FastAPI, and an interactive Streamlit dashboard deployed live
+on Streamlit Cloud.
+The updated fraud detection module is based on the IEEE-CIS Fraud
+Detection dataset. The pipeline automatically loads transaction and
+identity data, joins records on TransactionID, handles missing values,
+encodes categorical fields, scales numerical features, and trains
+XGBoost with class imbalance handled through scale_pos_weight. A
+200,000-row IEEE-CIS training run achieved an XGBoost ROC-AUC of
+0.9411 and an average precision score of 0.6796. The combined
+XGBoost and Isolation Forest risk score achieved ROC-AUC of 0.9373.
+The intrusion detection module uses the NSL-KDD dataset and
+evaluates Random Forest and XGBoost classifiers, with XGBoost
+achieving ROC-AUC of 0.9696. The system is served through FastAPI
+
+and demonstrated through a Streamlit dashboard that supports single-
+record prediction and CSV-based batch prediction.
+
+Keywords: Anomaly Detection, IEEE-CIS Fraud Detection, NSL-KDD,
+XGBoost, Isolation Forest, SHAP Explainability, FastAPI, Streamlit,
+Machine Learning Deployment.
+
+Contents
+
+CERTIFICATE ii
+ACKNOWLEDGEMENT iii
+ABSTRACT iv
+List of Figures vii
+List of Tables vii
+List of Abbreviations viii
+1 INTRODUCTION ix
+1.1 Objectives
+2 LITERATURE REVIEW x
+2.1 Fraud Detection Research
+2.2 Network Intrusion Detection Research
+3 SYSTEM DESIGN AND ARCHITECTURE xi
+4 DATASETS xii
+4.1 IEEE-CIS Fraud Detection Dataset
+4.2 NSL-KDD Dataset
+5 DATA PREPROCESSING xiii
+6 MODEL DEVELOPMENT xiv
+6.1 Fraud Detection
+6.2 Intrusion Detection
+7 EXPLAINABILITY xv
+
+8 SYSTEM IMPLEMENTATION xvi
+8.1 FastAPI Backend
+8.2 Streamlit Dashboard
+9 RESULTS AND EVALUATION xviii
+9.1 Fraud Detection Results
+9.2 Intrusion Detection Results
+10 DEPLOYMENT AND DEMONSTRATION xxii
+11 LIMITATIONS AND FUTURE WORK xxiii
+11.1 Current Limitations
+11.2 Future Work
+12 CONCLUSION xxiv
+13 REFERENCES xxv
+
+LIST OF FIGURES
+Figure 1: ROC Curves — Fraud Detection Models (LR AUC=0.8802,
+XGBoost AUC=0.9411)
+Figure 2: Precision-Recall Curves — Fraud Detection Models
+(XGBoost AP=0.6796)
+Figure 3: Isolation Forest Anomaly Score Distribution — Normal vs
+Fraud (IEEE-CIS Dataset)
+Figure 4: ROC Curves — Intrusion Detection Models (RF
+AUC=0.9691, XGBoost AUC=0.9696)
+
+LIST OF TABLES
+Table 1: Fraud Detection Model Performance — IEEE-CIS Dataset
+(200,000 rows)
+Table 2: Intrusion Detection Model Performance — NSL-KDD Dataset
+
+LIST OF ABBREVIATIONS
+
+ML – Machine Learning
+API – Application Programming Interface
+REST – Representational State Transfer
+AUC – Area Under the Curve
+ROC – Receiver Operating Characteristic
+SHAP – SHapley Additive exPlanations
+XGBoost – Extreme Gradient Boosting
+RF – Random Forest
+LR – Logistic Regression
+CSV – Comma-Separated Values
+IEEE-CIS – IEEE Computational Intelligence Society
+NSL-KDD – Network Security Laboratory – KDD Dataset
+FastAPI – Fast Application Programming Interface (Python web
+framework)
+SMOTE – Synthetic Minority Over-sampling Technique
+CI/CD – Continuous Integration / Continuous Deployment
+PCA – Principal Component Analysis
+
+1. INTRODUCTION
+Digital payment systems and networked computing infrastructures
+generate large volumes of behavioural data. Hidden within this data are
+rare but high-impact events such as fraudulent transactions and
+malicious network connections. These events are difficult to detect
+using static rule-based systems because fraud patterns and attack
+behaviours evolve continuously.
+Machine learning offers a practical way to model complex, non-linear
+patterns in such data. However, many academic anomaly detection
+projects remain limited to isolated experiments. They often lack a
+reusable preprocessing pipeline, an inference API, user-facing
+dashboards, and interpretable predictions. This project addresses that
+gap by building a unified anomaly detection platform with separate
+domain modules and shared engineering practices.
+1.1 Objectives
+● Design a modular anomaly detection platform for fraud
+and intrusion detection.
+● Build an IEEE-CIS fraud preprocessing pipeline that handles
+missing values, categorical variables, and numerical scaling.
+● Train and evaluate Logistic Regression, XGBoost, Random
+Forest, and Isolation Forest models where appropriate.
+● Expose model inference through FastAPI endpoints for fraud and
+intrusion prediction.
+● Provide an interactive Streamlit dashboard for demonstration
+and user interaction.
+● Document performance, limitations, and future improvements in
+a reproducible manner.
+
+2. LITERATURE REVIEW
+2.1 Fraud Detection Research
+Fraud detection research has traditionally used highly imbalanced
+transaction datasets where fraudulent examples represent only a small
+fraction of all records. Earlier work commonly used Logistic Regression,
+Random Forest, gradient boosting, and synthetic oversampling
+techniques. Recent fraud detection systems increasingly use richer
+transaction metadata, categorical identity information, and tree-based
+boosting models.
+2.2 Network Intrusion Detection Research
+Network intrusion detection research has used benchmark datasets such
+as KDD Cup 1999 and NSL-KDD to compare classical machine
+learning models. Random Forest, Support Vector Machines, neural
+networks, and XGBoost have all shown strong results. A continuing
+challenge in both domains is the transition from model accuracy to
+operational usefulness, including deployment, monitoring, and
+explainability.
+
+3. SYSTEM DESIGN AND ARCHITECTURE
+The platform follows a modular architecture. Domain-specific code is
+separated into fraud and intrusion modules, while shared preprocessing
+utilities and common model-serving logic are reused where possible.
+The backend API is built with FastAPI, and the frontend dashboard is
+built with Streamlit.
+The fraud module includes data loading, preprocessing, model training,
+anomaly scoring, and explainability utilities. The API loads trained
+
+model artifacts from the models directory and accepts raw IEEE-CIS-
+style records for inference. The dashboard communicates with the API
+
+instead of loading models directly for primary prediction workflows.
+
+4. DATASETS
+4.1 IEEE-CIS Fraud Detection Dataset
+The updated fraud component uses the IEEE-CIS Fraud Detection
+dataset. The main training files are train_transaction.csv and
+train_identity.csv. Transaction data contains monetary, product, card,
+address, matching, count, time-delta, and V-series engineered features.
+Identity data provides device and identity-related attributes. These files
+are joined on TransactionID.
+4.2 NSL-KDD Dataset
+The intrusion detection component uses the NSL-KDD dataset, a
+cleaned version of KDD Cup 1999. It contains network connection
+features and labels indicating normal or attack traffic. For this platform,
+the problem is modelled as binary classification: normal traffic versus
+attack traffic.
+
+5. DATA PREPROCESSING
+The IEEE-CIS fraud preprocessing pipeline detects the target column
+isFraud, drops non-predictive identifiers from the feature matrix, splits
+data using stratification, imputes missing numerical values with
+medians, imputes missing categorical values with the most frequent
+category, applies one-hot encoding with unknown-category handling,
+and scales numerical columns.
+Unlike the previous ULB credit card dataset version, the IEEE-CIS
+dataset is not limited to PCA-transformed V1–V28 features and
+Amount. It includes many categorical and sparse identity features, so a
+saved preprocessing pipeline is required at inference time. The artifact
+models/fraud/fraud_preprocessor.pkl is therefore part of the deployed
+fraud system.
+
+6. MODEL DEVELOPMENT
+6.1 Fraud Detection
+Logistic Regression is retained as a baseline and XGBoost is used as
+the primary supervised model. XGBoost is suitable for tabular data,
+handles non-linear interactions effectively, and provides strong
+performance on imbalanced classification tasks. The model uses
+scale_pos_weight to account for class imbalance without synthetically
+expanding the transformed feature matrix.
+Isolation Forest is trained as an unsupervised anomaly detection layer.
+Its score is combined with the XGBoost fraud probability to produce
+a combined risk score, weighting the two signals to produce a final
+risk- level assessment.
+6.2 Intrusion Detection
+For intrusion detection, Random Forest and XGBoost models are used to
+classify network records as normal or attack. Both models are evaluated
+on the NSL-KDD test set to provide comparative performance metrics.
+
+7. EXPLAINABILITY
+SHAP explainability utilities are included to provide global and local
+interpretation of tree-based models. SHAP helps identify which features
+most strongly influence model predictions and supports model
+auditability. In the dashboard, prediction outputs include probability and
+risk-level summaries; additional SHAP plots can be regenerated
+through the explainability scripts.
+
+8. SYSTEM IMPLEMENTATION
+8.1 FastAPI Backend
+The FastAPI backend exposes three key endpoints for fraud prediction,
+intrusion prediction, and health checking. The fraud endpoint accepts
+either a single raw IEEE-CIS record or a list of records. Before
+prediction, the saved fraud preprocessor aligns incoming records to the
+training feature schema. All risk levels are classified as: ≥0.8 → HIGH,
+≥0.5 → MEDIUM, ≥0.3 → LOW, <0.3 → MINIMAL.
+
+Endpoint Method Input Output Fields
+
+/health GET None status, models_loaded, version
+
+/predict/fraud POST Raw IEEE-
+CIS record(s)
+
+prediction, label, fraud_probability,
+anomaly_score, combined_risk_score,
+risk_level
+
+/predict/intrusion POST 41
+NSL-KDD
+features
+
+prediction, label, attack_probability,
+risk_level
+
+8.2 Streamlit Dashboard
+The Streamlit dashboard provides domain selection, API status
+checking, single-record fraud and intrusion prediction, CSV upload
+workflows, model performance summaries, and generated visualisations.
+The fraud interface uses IEEE-CIS fields such as TransactionAmt,
+ProductCD, card1, card4, card6, C1, C2, D1, and DeviceType.
+
+Tab Key Features
+
+Single Prediction IEEE-CIS field input (TransactionAmt, ProductCD, card1, card4,
+card6, C1, C2, D1, DeviceType), real-time API call, probability
+output, risk-level summary
+
+Batch CSV
+Upload
+
+CSV file upload, row-by-row batch prediction, progress bar, summary
+distribution charts, downloadable results
+
+Model
+Performance
+
+Metric comparison tables, ROC curves, Precision-Recall curves,
+Isolation Forest score distribution
+
+9. RESULTS AND EVALUATION
+9.1 Fraud Detection Results
+On the 200,000-row IEEE-CIS fraud training run, XGBoost achieved
+ROC-AUC 0.9411 and average precision 0.6796. The combined
+XGBoost and Isolation Forest score achieved ROC-AUC 0.9373.
+The results show that the platform can handle the richer IEEE-CIS
+feature schema while maintaining strong fraud discrimination
+performance.
+
+Model ROC-AUC Avg Precision Notes
+
+Logistic Regression 0.8802 0.4326 Baseline
+
+XGBoost 0.9411 0.6796 Primary supervised model
+
+XGBoost + Isolation Forest 0.9373 — Combined risk score
+
+Table 1: Fraud Detection Model Performance — IEEE-CIS Dataset (200,000 rows)
+
+Figure 1: ROC Curves — Fraud Detection Models (LR AUC=0.8802, XGBoost AUC=0.9411)
+
+Figure 2: Precision-Recall Curves — Fraud Detection Models (XGBoost AP=0.6796)
+
+Figure 3: Isolation Forest Anomaly Score Distribution — Normal vs Fraud (IEEE-CIS Dataset)
+9.2 Intrusion Detection Results
+For intrusion detection, XGBoost achieved ROC-AUC 0.9696 and
+Random Forest achieved ROC-AUC 0.9691. XGBoost correctly
+identifies more attack records than Random Forest, reflecting stronger
+generalisation on the NSL-KDD test split.
+
+Model ROC-AUC Avg Precision Accuracy Attack F1
+
+Random Forest 0.9691 0.9699 76% 0.75
+
+XGBoost 0.9696 0.9725 81% 0.81
+
+Table 2: Intrusion Detection Model Performance — NSL-KDD Dataset
+
+Figure 4: ROC Curves — Intrusion Detection Models (RF AUC=0.9691, XGBoost
+AUC=0.9696)
+
+10. DEPLOYMENT AND DEMONSTRATION
+The project runs locally with two processes: a FastAPI server on port
+8000 and a Streamlit dashboard on port 8501. The dashboard verifies
+API availability through the /health endpoint and displays “API
+Connected” when the backend is active. The project was moved to the
+D drive for more reliable handling of large datasets and model artifacts.
+For demonstrations, single-record prediction is recommended. Batch
+prediction is supported, but full IEEE-CIS files should not be uploaded
+directly during a live demo because the current dashboard processes
+rows sequentially.
+
+Component Platform URL / Access
+
+Source Code GitHub (Public) github.com/silent-knight-22/anomaly-detection
+
+-platform
+
+Streamlit
+Dashboard
+
+Streamlit Cloud anomaly-detection-platform-cxuq2ymf9qsky7
+
+klzkoe8y.streamlit.app
+
+FastAPI Backend Local
+
+(localhost:8000)
+
+uvicorn src.api.main:app --reload --port 8000
+
+API
+Documentation
+
+Auto-generated
+OpenAPI
+
+localhost:8000/docs (when running locally)
+
+11. LIMITATIONS AND FUTURE WORK
+11.1 Current Limitations
+● The dashboard batch workflow sends rows sequentially, which is
+slow for very large CSV files.
+● Training was performed on 200,000 rows; full IEEE-CIS dataset
+training on higher-resource hardware would likely improve
+metrics further.
+● The FastAPI backend runs locally; it is not yet cloud-deployed
+for full accessibility.
+11.2 Future Work
+● Add vectorised batch prediction, background jobs, and
+downloadable result files for large CSV uploads.
+● Hyperparameter tuning via grid search or Bayesian
+optimization for both fraud and intrusion models.
+● Docker packaging and CI/CD pipeline via GitHub Actions
+for automated testing and model validation.
+● Deploy FastAPI backend to Render or Railway for full cloud
+accessibility.
+● Add model drift monitoring using Evidently AI to
+detect distribution shift from training data.
+● Extend intrusion detection to multi-class classification (Normal /
+DoS / Probe / R2L / U2R).
+
+12. CONCLUSION
+The updated project successfully demonstrates an end-to-end anomaly
+detection platform that supports two important security domains. The
+migration to the IEEE-CIS fraud dataset makes the fraud module more
+realistic and technically robust because it now handles categorical,
+numerical, sparse, and identity features across joined transaction and
+identity tables.
+The combination of preprocessing, supervised learning, anomaly
+scoring, API serving, and dashboard interaction reflects a complete
+machine learning engineering workflow. The platform achieves
+competitive model performance (XGBoost ROC-AUC 0.9411 on fraud,
+0.9696 on intrusion detection), provides SHAP explainability, exposes a
+documented REST API, and is accessible via a live web dashboard —
+all within a single, modular codebase.
+
+13. REFERENCES
+[1]IEEE-CIS Fraud Detection Dataset, Kaggle.
+https://www.kaggle.com/c/ieee-fraud-detection/data
+[2]Tavallaee, M. et al. A Detailed Analysis of the KDD CUP 99
+Data Set. IEEE Symposium on Computational Intelligence for
+Security and Defense Applications, 2009.
+[3]Chen, T. and Guestrin, C. XGBoost: A Scalable Tree
+Boosting System. ACM SIGKDD, 2016.
+[4]Liu, F. T., Ting, K. M., and Zhou, Z. H. Isolation Forest.
+IEEE International Conference on Data Mining, 2008.
+[5]Lundberg, S. M. and Lee, S.-I. A Unified Approach to
+Interpreting Model Predictions. NeurIPS, 2017.
+[6]FastAPI Documentation. https://fastapi.tiangolo.com
+[7]Streamlit Documentation. https://docs.streamlit.io
+[8]Scikit-learn Documentation. https://scikit-learn.org
+[9]Canadian Institute for Cybersecurity. NSL-KDD Dataset.
+https://www.kaggle.com/datasets/hassan06/nslkdd
